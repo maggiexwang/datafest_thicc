@@ -1,0 +1,18 @@
+---
+title: "Data Process"
+author: "Thicc Data Team"
+date: "March 23, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+```
+
+```{r}
+#raw <- readr::read_csv("dataFestReleaseFinal_3_23.csv")
+
+raw_mini <- readr::read_csv("Indeed_mini.csv")
+```
+
