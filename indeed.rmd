@@ -8,11 +8,75 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(readr)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
 ```
 
 ```{r}
-#raw <- readr::read_csv("dataFestReleaseFinal_3_23.csv")
+raw <- readr::read_csv("dataFestReleaseFinal_3_23.csv")
 
 raw_mini <- readr::read_csv("Indeed_mini.csv")
+```
+
+```{r edu}
+# Investigating the association between education requirements and application numbers
+
+# Cleaning up the data
+edu <- raw %>% 
+  select(jobHash, licenseRequiredJob, 
+         noEducationRequirementsJob, 
+         highSchoolEducationRequirementsJob, 
+         higherEducationRequirementsJob, applies) %>% 
+  group_by(jobHash) %>% 
+  mutate(ttl_app = sum(applies), 
+         license = max(licenseRequiredJob), 
+         none = max(noEducationRequirementsJob), 
+         highschool = max(highSchoolEducationRequirementsJob), 
+         higher = max(highSchoolEducationRequirementsJob)) %>% 
+  filter(row_number()==1)
+
+edu <- edu %>% 
+  select(jobHash, ttl_app, none, license, highschool, higher)
+
+
+# Exploratory analysis
+## how many jobs
+edu_req <- edu %>% 
+  ungroup() %>% 
+  summarize(none = sum(none), license = sum(license), 
+            highschool = sum(highschool), higher = sum(higher, na.rm = TRUE)) %>% 
+  gather(key = reqtype, value = n)
+plot_req_n <- ggplot(edu_req, aes(x = reqtype, y = n)) + geom_bar(stat = "identity")
+
+## reqs versus apps
+edu_none <- edu %>% 
+  filter(none == 1) %>% 
+  ungroup() %>% 
+  summarise(app_none = sum(ttl_app))
+edu_license <- edu %>% 
+  filter(license == 1) %>% 
+  ungroup() %>% 
+  summarise(app_license = sum(ttl_app))
+edu_highsch <- edu %>% 
+  filter(highschool == 1) %>% 
+  ungroup() %>% 
+  summarise(app_highsch = sum(ttl_app))
+edu_higher <- edu %>% 
+  filter(higher == 1) %>% 
+  ungroup() %>% 
+  summarise(app_higher = sum(ttl_app))
+### plot it
+edu_req_app <- edu_req %>% 
+  mutate(app = c(edu_none$app_none, edu_license$app_license, 
+                 edu_highsch$app_highsch, edu_higher$app_higher), 
+         mean_app = app/n)
+plot_req_app <- ggplot(edu_req_app, aes(x = reqtype, y = app)) + geom_bar(stat = "identity")
+plot_req_app_mean <- ggplot(edu_req_app, aes(x = reqtype, y = mean_app)) + 
+  geom_bar(stat = "identity")
+
+## predict number of applications with jobreqs
+m_edu_app_req <- lm(ttl_app~none+license+highschool, data = edu)
+summary(m_edu_app_req)
 ```
 
