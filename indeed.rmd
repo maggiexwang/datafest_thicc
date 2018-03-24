@@ -17,17 +17,19 @@ library(RColorBrewer)
 raw <- readr::read_csv("dataFestReleaseFinal_3_23.csv")
 ```
 
-### Question: Supply and Demand in Different Employer Industries
+## Question: Supply and Demand in Different Employer Industries
 ```{r data_industry, warning = FALSE}
 # group_by jobHash
 industry_table <- raw %>%
-  select(applies, employerIndustry, jobHash) %>%
+  select(applies, employerIndustry, jobHash, supervisingJob) %>%
   group_by(jobHash) %>%
   summarize(total_applies = sum(applies),
-            industry = first(employerIndustry)) %>%
+            industry = first(employerIndustry),
+            supervisingJob = first(supervisingJob)) %>%
   group_by(industry) %>%
   summarize(num_jobs = n(),
-            num_applies = sum(total_applies)) %>%
+            num_applies = sum(total_applies), 
+            num_supervising_jobs = sum(supervisingJob)) %>%
   mutate(ratio_apply = num_applies/num_jobs) 
 ```
 
@@ -35,6 +37,7 @@ industry_table <- raw %>%
 ```{r postings_graph}
 industry_table %>% ggplot(aes(x = reorder(industry, -num_jobs))) +
   geom_bar(aes(y = num_jobs), stat = "identity", fill = rgb(22/255, 199/255, 102/255)) +
+  geom_bar(aes(y = num_supervising_jobs), stat = "identity", fill = "red") +
   labs(title = "Number of job postings across industries") +
   theme(axis.text.x = element_text(face = "bold", size = 10, angle = 45), 
         axis.text.y = element_text(face = "bold", size = 10), 
@@ -59,8 +62,9 @@ industry_table %>% ggplot(aes(x = reorder(industry, -ratio_apply))) +
   scale_y_continuous(name = "Counts", labels = scales::comma)  
 ```
 
-### Question: (1) Across different industries, which methods of advertising is more popular (Direct Employer or Third Party (Staffing Agencies or Job Boards))
+## Question: Across different industries, which methods of advertising is more popular (Direct Employer or Third Party (Staffing Agencies or Job Boards))
 ```{r}
+# filter out companies that we don't know what type of advertising they used
 ad_table <-  raw %>% 
   select(applies, employerIndustry, jobHash, advtype, employeecount) %>%
   filter(advtype == "Direct Employer" | advtype == "Staffing Agency" | advtype == "Job Boards") %>% 
@@ -100,71 +104,30 @@ ad_table %>% ggplot(aes(x = reorder(employerIndustry, -p_jobs_third_party))) +
   
 ```
 
-
-
-
-
-
-
-
-
-```{r edu}
-# Investigating the association between education requirements and application numbers
-
-# Cleaning up the data
-edu <- raw %>% 
-  select(jobHash, licenseRequiredJob, 
-         noEducationRequirementsJob, 
-         highSchoolEducationRequirementsJob, 
-         higherEducationRequirementsJob, applies) %>% 
-  group_by(jobHash) %>% 
-  mutate(ttl_app = sum(applies), 
-         license = max(licenseRequiredJob), 
-         none = max(noEducationRequirementsJob), 
-         highschool = max(highSchoolEducationRequirementsJob), 
-         higher = max(highSchoolEducationRequirementsJob)) %>% 
-  filter(row_number()==1)
-
-edu <- edu %>% 
-  select(jobHash, ttl_app, none, license, highschool, higher)
-
-
-# Exploratory analysis
-## how many jobs
-edu_req <- edu %>% 
-  ungroup() %>% 
-  summarize(none = sum(none), license = sum(license), 
-            highschool = sum(highschool), higher = sum(higher, na.rm = TRUE)) %>% 
-  gather(key = reqtype, value = n)
-plot_req_n <- ggplot(edu_req, aes(x = reqtype, y = n)) + geom_bar(stat = "identity")
-
-## reqs versus apps
-edu_none <- edu %>% 
-  filter(none == 1) %>% 
-  ungroup() %>% 
-  summarise(app_none = sum(ttl_app))
-edu_license <- edu %>% 
-  filter(license == 1) %>% 
-  ungroup() %>% 
-  summarise(app_license = sum(ttl_app))
-edu_highsch <- edu %>% 
-  filter(highschool == 1) %>% 
-  ungroup() %>% 
-  summarise(app_highsch = sum(ttl_app))
-edu_higher <- edu %>% 
-  filter(higher == 1) %>% 
-  ungroup() %>% 
-  summarise(app_higher = sum(ttl_app))
-### plot it
-edu_req_app <- edu_req %>% 
-  mutate(app = c(edu_none$app_none, edu_license$app_license, 
-                 edu_highsch$app_highsch, edu_higher$app_higher), 
-         mean_app = app/n)
-plot_req_app <- ggplot(edu_req_app, aes(x = reqtype, y = app)) + geom_bar(stat = "identity")
-plot_req_app_mean <- ggplot(edu_req_app, aes(x = reqtype, y = mean_app)) + 
-  geom_bar(stat = "identity")
-
-## predict number of applications with jobreqs
-m_edu_app_req <- lm(ttl_app~none+license+highschool, data = edu)
-summary(m_edu_app_req)
+## Question 3: Distribution of jobs among different sizes of companies
+```{r}
+size_table <- raw %>%
+  select(applies, employeecount, jobHash) %>%
+  group_by(jobHash) %>%
+  summarize(num_applies = sum(applies),
+            size = first(employeecount)) %>%
+  group_by(size) %>%
+  summarize(num_jobs = n(),
+            total_applies = sum(num_applies))
+  
 ```
+
+
+```{r}
+size_table %>% ggplot(aes(x = size)) +
+  geom_bar(aes(y = total_applies),stat = "identity") +
+  scale_fill_brewer(palette = "Set1") +
+  theme(axis.text.x = element_text(face = "bold", size = 10, angle = 45), 
+        axis.text.y = element_text(face = "bold", size = 10), 
+        axis.title.x = element_text(face = "bold", size = 10), 
+        axis.title.y = element_text(face = "bold", size = 10),
+        plot.title = element_text(face = "bold", size = 10)) + 
+  scale_x_discrete(name = "Size") +
+  scale_y_continuous(name = "Percentage", labels = scales::percent) 
+```
+
