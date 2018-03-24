@@ -8,11 +8,69 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(readr)
+library(tidyverse)
+library(rlang)
 ```
 
 ```{r}
-#raw <- readr::read_csv("dataFestReleaseFinal_3_23.csv")
+raw <- readr::read_csv("dataFestReleaseFinal_3_23.csv")
+```
 
+```{r}
 raw_mini <- readr::read_csv("Indeed_mini.csv")
 ```
+
+### Question: Supply and Demand in Different Employer Industries
+```{r data_industry, warning = FALSE}
+# group_by jobHash
+raw_unique1 <- raw %>%
+  select(applies, clicks, employerIndustry, jobHash) %>%
+  group_by(jobHash) %>%
+  summarize(total_applies = sum(applies),
+            total_clicks = sum(clicks),
+            industry = first(employerIndustry)) %>%
+  group_by(industry) %>%
+  summarize(num_jobs = n(),
+            num_applies = sum(total_applies),
+            num_clicks = sum(total_clicks)) %>%
+  mutate(ratio_apply = num_applies/num_jobs,
+         ratio_click = num_clicks/num_jobs) 
+```
+
+### Draw data graphic to show the ratio of applies and clicks over job postings across all industries: Which industry is the most competitive?
+```{r ratio_graph, warning = FALSE}
+raw_unique1 %>% ggplot(aes(x = reorder(industry, -ratio_apply))) +
+  geom_bar(aes(y = ratio_apply), stat = "identity", fill = rgb(224/255, 132/255, 13/255)) +
+  labs(title = "Average number of applies and clicks per job across industries") +
+  theme(axis.text.x = element_text(face = "bold", size = 10, angle = 45), 
+        axis.text.y = element_text(face = "bold", size = 10), 
+        axis.title.x = element_text(face = "bold", size = 10), 
+        axis.title.y = element_text(face = "bold", size = 10),
+        plot.title = element_text(face = "bold", size = 10)) + 
+  scale_x_discrete(name = "Industry") +
+  scale_y_continuous(name = "Counts", labels = scales::comma)  
+```
+
+### Draw data graphic to show the total number of job postings across all industries: which industry hires the most?
+```{r postings_graph}
+raw_unique1 %>% ggplot(aes(x = reorder(industry, -num_jobs))) +
+  geom_bar(aes(y = num_jobs), stat = "identity", fill = rgb(22/255, 199/255, 102/255)) +
+  labs(title = "Number of job postings across industries") +
+  theme(axis.text.x = element_text(face = "bold", size = 10, angle = 45), 
+        axis.text.y = element_text(face = "bold", size = 10), 
+        axis.title.x = element_text(face = "bold", size = 10), 
+        axis.title.y = element_text(face = "bold", size = 10),
+        plot.title = element_text(face = "bold", size = 10)) + 
+  scale_x_discrete(name = "Industry") +
+  scale_y_continuous(name = "Counts", labels = scales::comma)  
+```
+
+### Question: (1) Across different industries, which methods of advertising is more popular (Direct Employer or Third Party (Staffing Agencies or Job Boards))
+
+
+
+
+
+
+
 
